@@ -1,12 +1,23 @@
 <template>
   <div id="app">
-    <Comment />
+    <Comment
+      :article_id="article_id"
+      :page_id="page_id"
+      :comment_type="comment_type"
+    />
   </div>
 </template>
 
 <script>
 export default {
   name: 'App',
+  data() {
+    return {
+      article_id: 2,
+      page_id: 0,
+      comment_type: 1,
+    };
+  },
 };
 </script>
 

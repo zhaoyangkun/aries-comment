@@ -35,7 +35,12 @@
     <a-row class="button-box">
       <a-col :span="21"></a-col>
       <a-col :span="3">
-        <a-button id="submit-btn" @click="handlePublishComment">提交</a-button>
+        <a-button
+          class="submit-btn"
+          @click="handlePublishComment"
+          :loading="publishBtnLoading"
+          >提交
+        </a-button>
       </a-col>
     </a-row>
 
@@ -52,10 +57,7 @@
     >
       <a-row class="comment-root-box">
         <a-col :span="2" class="user-img-box">
-          <img
-            class="user-img"
-            src="https://cn.gravatar.com/avatar/7b072beef3e42b99231f9ecb0a0856b9&d=mm"
-          />
+          <img class="user-img" :src="comment.user_img" />
         </a-col>
         <a-col :span="22" class="comment-detail-box">
           <a-col :span="24">
@@ -89,10 +91,7 @@
         :key="child_comment.ID"
       >
         <a-col :span="2" class="user-img-box">
-          <img
-            class="user-img"
-            src="https://cn.gravatar.com/avatar/7b072beef3e42b99231f9ecb0a0856b9&d=mm"
-          />
+          <img class="user-img" :src="child_comment.user_img" />
         </a-col>
         <a-col :span="22" class="comment-detail-box">
           <a-col :span="24">
@@ -187,9 +186,12 @@
           <a-row class="button-box">
             <a-col :span="21"></a-col>
             <a-col :span="3">
-              <a-button id="submit-btn" @click="handleReplyComment"
-                >提交</a-button
-              >
+              <a-button
+                class="submit-btn"
+                @click="handleReplyComment"
+                :loading="replyBtnLoading"
+                >提交
+              </a-button>
             </a-col>
           </a-row>
         </a-form-model>
@@ -201,6 +203,13 @@
 <script>
 import CommentVditor from '../components/CommentVditor';
 import ReplyVditor from '../components/ReplyVditor';
+import {createIdenticon} from '../avatar/index';
+import {
+  getCommentList,
+  getSettingItems,
+  getUserList,
+  publishComment,
+} from '../api/request';
 
 export default {
   name: 'Comment',
@@ -211,7 +220,7 @@ export default {
   props: {
     article_id: {
       type: Number,
-      default: 2,
+      default: 0,
     },
     page_id: {
       type: Number,
@@ -219,9 +228,10 @@ export default {
     },
     comment_type: {
       type: Number,
-      default: 1,
+      default: 0,
     },
   },
+  computed: {},
   data() {
     return {
       placement: 'bottom',
@@ -251,6 +261,7 @@ export default {
         email: '',
         url: '',
         nick_name: '',
+        user_img: '',
         content: '',
         md_content: '',
         device: '',
@@ -265,6 +276,7 @@ export default {
         email: '',
         url: '',
         nick_name: '',
+        user_img: '',
         content: '',
         md_content: '',
         device: '',
@@ -278,9 +290,22 @@ export default {
           {required: true, message: '请输入邮箱', trigger: 'blur'},
           {type: 'email', message: '邮箱格式有误', trigger: 'blur'},
         ],
+        user_img: [
+          {required: true, message: '用户头像不能为空', trigger: 'blur'},
+          {
+            max: 10000,
+            message: '用户头像不能超过 10000 个字符',
+            trigger: 'blur',
+          },
+        ],
         url: [
           {required: true, message: '请输入网址', trigger: 'blur'},
           {type: 'url', message: '网址格式有误', trigger: 'blur'},
+          {max: 150, message: '网址不能超过 150 个字符', trigger: 'blur'},
+        ],
+        device: [
+          {required: true, message: '设备名称不能为空', trigger: 'blur'},
+          {max: 100, message: '设备名称不能超过 100 个字符', trigger: 'blur'},
         ],
         content: [
           {
@@ -302,9 +327,22 @@ export default {
           {required: true, message: '请输入邮箱', trigger: 'blur'},
           {type: 'email', message: '邮箱格式有误', trigger: 'blur'},
         ],
+        user_img: [
+          {required: true, message: '用户头像不能为空', trigger: 'blur'},
+          {
+            max: 10000,
+            message: '用户头像不能超过 10000 个字符',
+            trigger: 'blur',
+          },
+        ],
         url: [
           {required: true, message: '请输入网址', trigger: 'blur'},
           {type: 'url', message: '网址格式有误', trigger: 'blur'},
+          {max: 150, message: '网址不能超过 150 个字符', trigger: 'blur'},
+        ],
+        device: [
+          {required: true, message: '设备名称不能为空', trigger: 'blur'},
+          {max: 100, message: '设备名称不能超过 100 个字符', trigger: 'blur'},
         ],
         content: [
           {
@@ -316,6 +354,8 @@ export default {
           {max: 1200, trigger: 'blur', message: '评论字数不能超过 1200'},
         ],
       },
+      publishBtnLoading: false,
+      replyBtnLoading: false,
     };
   },
   async created() {
@@ -325,21 +365,24 @@ export default {
     this.initDevice();
   },
   methods: {
+    // 打开回复框
     handleOpenDrawer(root_id, parent_id) {
       this.replyForm.root_comment_id = root_id;
       this.replyForm.parent_comment_id = parent_id;
       this.visible = true;
     },
+    // 关闭回复框
     handleCloseDrawer() {
       this.visible = false;
     },
+    // 分页
     handlePageChange(page) {
       this.pagination.page = page;
       this.handleFetchCommentData();
     },
+    // 获取评论设置数据
     async handleFetchCommentSetting() {
-      await this.$axios
-        .get('/sys_setting/items?name=评论设置')
+      await getSettingItems('评论设置')
         .then((res) => {
           const data = res.data;
           if (data.code === 100) {
@@ -354,9 +397,9 @@ export default {
           console.log(err);
         });
     },
+    // 获取用户数据
     async handleFetchUserData() {
-      await this.$axios
-        .get('/all_users')
+      await getUserList()
         .then((res) => {
           const data = res.data;
           if (data.code === 100) {
@@ -370,26 +413,39 @@ export default {
           this.$message.error('发生了错误');
         });
     },
+    // 获取评论
     async handleFetchCommentData() {
-      this.pagination.article_id = 2;
-      this.pagination.page_id = 0;
-      await this.$axios
-        .get('/comments', {
-          params: {
-            page: this.pagination.page,
-            size: this.pagination.size,
-            key: this.pagination.key,
-            type: this.pagination.type,
-            state: this.pagination.state,
-            is_parent: this.pagination.is_parent,
-            article_id: this.pagination.article_id,
-            page_id: this.pagination.page_id,
-          },
-        })
+      this.pagination.article_id = this.article_id;
+      this.pagination.page_id = this.page_id;
+      this.pagination.type = this.comment_type;
+      await getCommentList({
+        page: this.pagination.page,
+        size: this.pagination.size,
+        key: this.pagination.key,
+        type: this.pagination.type,
+        state: this.pagination.state,
+        is_parent: this.pagination.is_parent,
+        article_id: this.pagination.article_id,
+        page_id: this.pagination.page_id,
+      })
         .then((res) => {
           const data = res.data;
           if (data.code === 100) {
             this.commentList = data.data.data;
+            // this.commentList.forEach((_, i) => {
+            //   this.commentList[i].user_img = createIdenticon(
+            //     this.commentList[i].nick_name,
+            //   );
+            //   if (this.commentList[i].child_comments) {
+            //     this.commentList[i].child_comments.forEach((_, j) => {
+            //       this.commentList[i].child_comments[
+            //         j
+            //       ].user_img = createIdenticon(
+            //         this.commentList[i].child_comments[j].nick_name,
+            //       );
+            //     });
+            //   }
+            // });
             this.pagination.total_pages = data.data.total_pages;
             this.pagination.total_num = data.data.total_num;
             this.pagination.dis_num = data.data.dis_num;
@@ -402,17 +458,19 @@ export default {
           this.$message.error('发生了错误');
         });
     },
+    // 评论
     handlePublishComment() {
-      this.publishForm.admin_user_id = this.user.ID;
+      // this.publishForm.admin_user_id = this.user.ID;
       this.publishForm.article_id = this.article_id;
       this.publishForm.page_id = this.page_id;
       this.publishForm.type = this.comment_type;
+      this.publishForm.user_img = createIdenticon(this.publishForm.nick_name);
       this.publishForm.content = this.$refs.commentVditor.getContent();
       this.publishForm.md_content = this.$refs.commentVditor.getHTML();
       this.$refs.publishForm.validate((valid) => {
         if (valid) {
-          this.$axios
-            .post('/comments', this.publishForm)
+          this.publishBtnLoading = true;
+          publishComment(this.publishForm)
             .then((res) => {
               const data = res.data;
               if (data.code === 100) {
@@ -426,20 +484,23 @@ export default {
               console.log(err);
               this.$message.error('发生了错误');
             });
+          this.publishBtnLoading = false;
         }
       });
     },
+    // 回复
     handleReplyComment() {
-      this.replyForm.admin_user_id = this.user.ID;
+      // this.replyForm.admin_user_id = this.user.ID;
       this.replyForm.article_id = this.article_id;
       this.replyForm.page_id = this.page_id;
       this.replyForm.type = this.comment_type;
+      this.replyForm.user_img = createIdenticon(this.replyForm.nick_name);
       this.replyForm.content = this.$refs.replyVditor.getContent();
       this.replyForm.md_content = this.$refs.replyVditor.getHTML();
       this.$refs.replyForm.validate((valid) => {
         if (valid) {
-          this.$axios
-            .post('/comments', this.replyForm)
+          this.replyBtnLoading = true;
+          publishComment(this.replyForm)
             .then((res) => {
               const data = res.data;
               if (data.code === 100) {
@@ -453,9 +514,11 @@ export default {
               console.log(err);
               this.$message.error('发生了错误');
             });
+          this.replyBtnLoading = false;
         }
       });
     },
+    // 初始化设备名称
     initDevice() {
       const OS = this.getOS();
       const browser = this.getBrowser();
@@ -463,6 +526,7 @@ export default {
       this.publishForm.device = device;
       this.replyForm.device = device;
     },
+    // 获取操作系统名称
     getOS() {
       const sUserAgent = navigator.userAgent;
 
@@ -515,6 +579,7 @@ export default {
       }
       return 'unknown OS';
     },
+    // 获取浏览器名称
     getBrowser() {
       const sys = {};
       const ua = navigator.userAgent.toLowerCase();
@@ -544,6 +609,7 @@ export default {
 
       return {broswer: 'unknown browser', version: ''};
     },
+    // 时间格式化
     showTime(time) {
       const timePublish = new Date(time);
       const timeNow = new Date();
@@ -593,12 +659,15 @@ $red: rgb(244, 121, 131);
 @mixin padding_0 {
   padding: 0;
 }
+
 @mixin margin_0 {
   margin: 0;
 }
+
 @mixin border_0 {
   border: 0;
 }
+
 @mixin single-line {
   overflow: hidden;
   white-space: nowrap;
@@ -616,65 +685,82 @@ $red: rgb(244, 121, 131);
 h1 {
   color: green;
 }
+
 .f_l {
   float: left;
 }
+
 .f_r {
   float: right;
 }
+
 .t_a_l {
   text-align: left;
 }
+
 .t_a_c {
   text-align: center;
 }
-#submit-btn {
+
+.submit-btn {
   float: right;
 }
+
 .comment-container {
   max-width: $max_width;
   margin: $margin_0_a;
   padding: 10px;
 }
+
 .comment-container .input-item {
   margin: 5px 0;
 }
+
 .comment-textarea-box {
   margin-top: $margin_t_10;
 }
+
 .button-box {
   margin-top: $margin_t_10;
 }
+
 .comment-content-box {
   margin-top: 10px;
 }
+
 .comment-reply-box {
   width: 97%;
   margin-left: 3%;
   margin-top: 5px;
 }
+
 .comment-content {
   width: 100%;
   line-height: 20px;
   margin-top: 10px;
 }
+
 .comment-detail-box {
   padding-left: 5px;
 }
+
 .comment-number-box {
   line-height: 20px;
   margin-top: 5px;
 }
+
 .comment-container .nickname {
   max-width: 30%;
   @extend %line-height-20;
 }
+
 .comment-container .device {
   max-width: 70%;
   margin-left: 10px;
   color: $grey;
   @extend %line-height-20;
 }
+
 .comment-container .time {
   width: 50%;
   color: $grey;
@@ -682,15 +768,18 @@ h1 {
   text-align: left;
   @extend %line-height-20;
 }
+
 .comment-container .reply-btn-box {
   width: 50%;
   float: left;
   text-align: right;
   @extend %line-height-20;
 }
+
 .reply-btn-box .reply-btn {
   color: $red;
 }
+
 .user-img-box .user-img {
   width: 32px;
   height: 32px;
@@ -698,16 +787,20 @@ h1 {
   overflow: hidden;
   transition: transform 1s ease-in-out;
 }
+
 .user-img-box img:hover {
   transform: rotateZ(180deg);
 }
+
 .divider {
   margin: 5px 0;
 }
+
 .empty-tip {
   line-height: 60px;
   color: $grey;
 }
+
 .at-user {
   color: $grey;
   text-align: left;

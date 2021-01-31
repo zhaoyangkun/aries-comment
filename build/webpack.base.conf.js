@@ -22,7 +22,7 @@ const createLintingRule = () => ({
 module.exports = {
   context: path.resolve(__dirname, '../'),
   entry: {
-    app: './src/main.js'
+    app: process.env.NODE_ENV === 'production' ? './src/plugin/index.js' : './src/main.js'
   },
   output: {
     path: config.build.assetsRoot,
@@ -49,7 +49,8 @@ module.exports = {
       {
         test: /\.js$/,
         loader: 'babel-loader',
-        include: [resolve('src'), resolve('test'), resolve('node_modules/webpack-dev-server/client')]
+        include: [resolve('src'), resolve('test'), resolve('node_modules/webpack-dev-server/client')],
+        exclude: /node_modules/,
       },
       // {
       //   test: /\.scss$/,
@@ -78,7 +79,8 @@ module.exports = {
           limit: 10000,
           name: utils.assetsPath('fonts/[name].[hash:7].[ext]')
         }
-      }
+      },
+      { test: /\.node$/, use: "node-loader" },
     ]
   },
   node: {
