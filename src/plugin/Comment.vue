@@ -63,7 +63,9 @@
           <a-col :span="24">
             <a-col></a-col>
             <a-col></a-col>
-            <p class="nickname f_l">{{ comment.nick_name }}</p>
+            <a :href="comment.url" target="_blank" class="nickname f_l">{{
+              comment.nick_name
+            }}</a>
             <p class="device f_l">{{ comment.device }}</p>
           </a-col>
           <a-col :span="24">
@@ -95,9 +97,9 @@
         </a-col>
         <a-col :span="22" class="comment-detail-box">
           <a-col :span="24">
-            <p class="nickname f_l">
+            <a :href="child_comment.url" target="_blank" class="nickname f_l">
               {{ child_comment.nick_name }}
-            </p>
+            </a>
             <p class="device f_l">{{ child_comment.device }}</p>
           </a-col>
           <a-col :span="24">
@@ -751,7 +753,12 @@ h1 {
 
 .comment-container .nickname {
   max-width: 30%;
+  color: $grey;
   @extend %line-height-20;
+}
+
+.comment-container .nickname:hover {
+  color: #99ccff;
 }
 
 .comment-container .device {
@@ -802,7 +809,7 @@ h1 {
 }
 
 .at-user {
-  color: $grey;
+  color: #777777;
   text-align: left;
   @include padding_0;
   @include margin_0;
